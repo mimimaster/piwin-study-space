@@ -6,14 +6,17 @@ Original, dependency-free-at-runtime teaching extension for **Pi 0.84.2** in piw
 
 ## Commands and lifecycle
 
-- `/teacher learn [topic]`: create a course and opt into locally diagnosed, staged learning.
-- `/teacher ta`: answer the current code doubt without any course, topic prompt, or disk writes. An explicit topic (`/teacher ta files`) creates a course; neither form imposes a curriculum.
-- `/teacher review [courseId]`: explicitly load a saved course for **native scheduled** review.
-- `/teacher resume [courseId]`: explicitly reload the saved profile, path, evidence and intentions in learn mode. Never replay native mutations.
-- `/teacher status`: textual mode, capabilities, preferences and saved course IDs.
-- `/teacher off`: clear this extension's status and mode; preserve files and ordinary coding rules.
+- `/teacher`: choose a teaching action from a basic selection dialog.
+- `/teacher-ta [topic]`: answer the current code doubt without a course when no topic is given. An explicit topic creates a TA course without imposing a curriculum.
+- `/teacher-learn [topic]`: create a course and start staged learning; an omitted topic opens a basic input dialog.
+- `/teacher-resume [courseId]`: choose a saved course by topic, or pass its ID explicitly, and reload saved profile/path/evidence in learn mode. Never replay native mutations.
+- `/teacher-review [courseId]`: choose a saved course for native scheduled review.
+- `/teacher-status`: show readable saved practice counts, planned stages and next exercise above the composer; without UI, report textual capabilities/preferences/course IDs.
+- `/teacher-off`: clear teaching mode and its UI, preserving saved data and ordinary coding rules.
 
-Topic/ID arguments work without UI. With dialog UI, omitted learn/review/resume arguments use only basic input/select; topicless ta needs no dialog or course. Role changes wait for idle, rather than replacing a live exercise. In no-UI mode, status is a displayed textual message, not a fictional dialog. No custom TUI/webview callback is required. Load, session start/switch, shutdown and replacement all default to **off**. No transcript/appendEntry state activates teaching. Off `before_agent_start` performs no IO and returns nothing. Active prompts are additive, and never change the active toolset.
+All original `/teacher <action>` forms remain supported. In piwin's slash and extension menus, every shortcut is independently discoverable; newer Hosts/Desktop show the literal bilingual purpose descriptions, so Chinese purpose searches such as `/助教` and `/复习` work. Course pickers show topic names, with ordinal suffixes to distinguish duplicate names; no UUID entry is needed with dialog UI. Empty lists explain how to create a course. Cancelling a picker preserves the current mode/course, and a session change cancels pending activation.
+
+Topic/ID arguments work without UI. Topicless TA needs no dialog or course. Commands select the role; send an ordinary message afterward to begin teaching. Role changes wait for idle. Load, session start/switch, shutdown and runtime replacement default to off. Active prompts are additive and never change the active toolset. `/teacher-status` shows saved evidence, never a mastery percentage. No custom TUI/webview is required. New shortcuts require extension 0.1.1; descriptions require a compatible new Host/Desktop. Use the normal installer/version selection workflow rather than editing an installed immutable revision.
 
 Learning uses short explanation → actual user attempt → feedback → concrete evidence → next practice. No medical/learner condition is assumed, no unsupported mastery flag exists, and no default lesson card is made.
 

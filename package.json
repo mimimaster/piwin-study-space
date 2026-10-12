@@ -1,6 +1,6 @@
 {
   "name": "piwin-study-space",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Optional, explicitly activated teaching extension for piwin native cards",
   "license": "MIT",
@@ -9,9 +9,26 @@
     "url": "git+https://github.com/mimimaster/piwin-study-space.git"
   },
   "homepage": "https://github.com/mimimaster/piwin-study-space",
-  "engines": { "node": ">=22.19.0" },
-  "pi": { "extensions": ["./index.ts"] },
-  "files": ["index.ts", "model.ts", "store.ts", "prompt.ts", "local.ts", "native.ts", "README.md", "LICENSE", "NOTICE"],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "index.ts",
+    "model.ts",
+    "store.ts",
+    "prompt.ts",
+    "status.ts",
+    "local.ts",
+    "native.ts",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts --configLoader runner",
     "typecheck": "tsc --noEmit -p tsconfig.json"

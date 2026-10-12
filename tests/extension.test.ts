@@ -145,3 +145,112 @@ describe('capabilities and own data tool', () => {
     expect((await replacement.execute({ action: 'preference', expectedRevision: 0, cards: 'ask' })).details).toEqual({ rejected: true });
   });
 });
+
+
+describe('discoverable teacher commands', () => {
+  it('registers every shortcut without opting into teaching', async () => {
+    const h = harness();
+    expect([...h.commands.keys()]).toEqual(['teacher', 'teacher-ta', 'teacher-learn', 'teacher-resume', 'teacher-review', 'teacher-status', 'teacher-off']);
+    expect(await h.prompt()).toBeUndefined();
+    await expect(access(join(root, 'study-space'))).rejects.toThrow();
+  });
+  it('TA shortcut needs no topic or saved course; off clears it', async () => {
+    const h = harness(); await h.command('', 'teacher-ta');
+    expect((await h.prompt()).systemPrompt).toContain('role="ta"');
+    expect(h.ctx.ui.input).not.toHaveBeenCalled();
+    await expect(access(join(root, 'study-space'))).rejects.toThrow();
+    await h.command('', 'teacher-off'); expect(await h.prompt()).toBeUndefined();
+  });
+  it('learn shortcut accepts a multiword topic or asks for it', async () => {
+    const h = harness(); await h.command('Rust ownership and borrowing', 'teacher-learn');
+    expect((await course()).topic).toBe('Rust ownership and borrowing');
+    await h.command('', 'teacher-learn');
+    expect(h.ctx.ui.input).toHaveBeenCalledOnce();
+    expect(await new Store(root).list()).toHaveLength(2);
+  });
+  it('bare teacher opens an action picker and runs the selected mode', async () => {
+    const h = harness();
+    vi.mocked(h.ctx.ui.select).mockImplementation(async (_title, options) => options[1]);
+    await h.command('');
+    expect(h.ctx.ui.select).toHaveBeenCalledWith(expect.stringContaining('教学入口'), expect.arrayContaining([expect.stringContaining('开始学习'), expect.stringContaining('到期复习')]));
+    expect((await h.prompt()).systemPrompt).toContain('role="learn"');
+  });
+  it('cancelling the action picker preserves the current mode and files', async () => {
+    const h = harness(); await h.command('', 'teacher-ta');
+    vi.mocked(h.ctx.ui.select).mockResolvedValue(undefined);
+    await h.command('');
+    expect((await h.prompt()).systemPrompt).toContain('role="ta"');
+    await expect(access(join(root, 'study-space'))).rejects.toThrow();
+  });
+  it('session change while choosing an action cannot activate the new session', async () => {
+    const h = harness(); let finish: ((value: string) => void) | undefined;
+    vi.mocked(h.ctx.ui.select).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const pending = h.command(''); await h.event('session_before_switch');
+    if (!finish) throw new Error('Action picker was not opened');
+    finish('开始学习 / Learn a topic'); await pending;
+    expect(await h.prompt()).toBeUndefined(); expect(h.ctx.ui.input).not.toHaveBeenCalled();
+  });
+  it.each(['teacher-resume', 'teacher-review'])('%s selects by topic and distinguishes duplicate names', async name => {
+    const h = harness(); await h.command('Rust — basics', 'teacher-learn'); await h.command('Rust — basics', 'teacher-learn');
+    const saved = await new Store(root).list();
+    vi.mocked(h.ctx.ui.select).mockImplementation(async (_title, options) => {
+      expect(options).toEqual(['Rust — basics · 1', 'Rust — basics · 2']);
+      expect(options.join(' ')).not.toContain(saved[0]?.courseId);
+      return options[1];
+    });
+    await h.command('', name);
+    expect((await h.prompt()).systemPrompt).toContain(saved[1]?.courseId);
+    expect((await h.prompt()).systemPrompt).toContain(name === 'teacher-review' ? 'role="review"' : 'role="learn"');
+  });
+  it('empty course lists explain how to start instead of opening an empty picker', async () => {
+    const h = harness(); await h.command('', 'teacher-review');
+    expect(h.ctx.ui.select).not.toHaveBeenCalled();
+    expect(h.ctx.ui.notify).toHaveBeenLastCalledWith(expect.stringContaining('/teacher-learn'), 'info');
+    expect(await h.prompt()).toBeUndefined();
+  });
+  it('cancelled course selection preserves the current course', async () => {
+    const h = harness(); await h.command('Rust', 'teacher-learn'); const saved = await course();
+    vi.mocked(h.ctx.ui.select).mockResolvedValue(undefined);
+    await h.command('', 'teacher-review');
+    expect((await h.prompt()).systemPrompt).toContain(saved.courseId);
+    expect((await h.prompt()).systemPrompt).toContain('role="learn"');
+  });
+  it('shows saved practice and next exercise without claiming mastery', async () => {
+    const h = harness(); await h.command('Rust', 'teacher-learn');
+    await h.execute({ action: 'evidence', expectedRevision: 0, ...EVIDENCE });
+    await h.command('', 'teacher-status');
+    expect(h.ctx.ui.setWidget).toHaveBeenLastCalledWith('study-space-progress', expect.arrayContaining([expect.stringContaining('Rust: 1 次练习记录'), expect.stringContaining(EVIDENCE.nextPractice)]), { placement: 'aboveEditor' });
+    await h.command('', 'teacher-off');
+    expect(h.ctx.ui.setWidget).toHaveBeenLastCalledWith('study-space-progress', undefined);
+    expect((await course()).evidence).toHaveLength(1);
+  });
+  it('noUI has shortcut help and explicit text/ID support without dialogs', async () => {
+    const h = harness(false); await h.command('');
+    expect(h.pi.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('/teacher-ta') }), { triggerTurn: false });
+    await h.command('files', 'teacher-learn'); const saved = await course();
+    await h.command('', 'teacher-off'); await h.command(saved.courseId, 'teacher-resume');
+    expect((await h.prompt()).systemPrompt).toContain(saved.courseId);
+    await h.command('', 'teacher-status');
+    expect(h.pi.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({ content: expect.stringContaining(saved.courseId) }), { triggerTurn: false });
+    expect(h.ctx.ui.input).not.toHaveBeenCalled(); expect(h.ctx.ui.select).not.toHaveBeenCalled();
+  });
+  it.each(['teacher-status', 'teacher-off'])('%s rejects extra arguments', async name => {
+    const h = harness(); await h.command('', 'teacher-ta'); await h.command('unexpected', name);
+    expect((await h.prompt()).systemPrompt).toContain('role="ta"');
+    expect(h.ctx.ui.notify).toHaveBeenLastCalledWith(expect.stringContaining('takes no arguments'), 'info');
+  });
+});
+
+
+it('a late status read cannot restore progress after leaving teaching', async () => {
+  const h = harness(); await h.command('', 'teacher-ta');
+  let finish: ((courses: []) => void) | undefined;
+  const spy = vi.spyOn(Store.prototype, 'list').mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  try {
+    const pending = h.command('', 'teacher-status'); await h.command('', 'teacher-off');
+    if (!finish) throw new Error('Status read was not reached');
+    finish([]); await pending;
+    expect(h.ctx.ui.setWidget).toHaveBeenLastCalledWith('study-space-progress', undefined);
+    expect(await h.prompt()).toBeUndefined();
+  } finally { spy.mockRestore(); }
+});

@@ -1,8 +1,8 @@
 {
   "name": "piwin-study-space",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Optional, explicitly activated teaching extension for piwin native cards",
+  "description": "Optional tutor for piwin: learn a topic from your knowledge bases, write it into the wiki, keep cards for what you got wrong",
   "license": "MIT",
   "repository": {
     "type": "git",
